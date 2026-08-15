@@ -15,11 +15,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $credentials = config('cbt.super_admin');
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        if ($credentials['email'] && $credentials['username'] && $credentials['password']) {
+            User::factory()->create([
+                'name' => 'Super Admin',
+                'email' => $credentials['email'],
+                'username' => $credentials['username'],
+                'password' => $credentials['password'],
+            ]);
+        }
     }
 }
