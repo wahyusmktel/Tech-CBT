@@ -36,5 +36,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('student-login', function (Request $request): Limit {
             return Limit::perMinute(5)->by(Str::lower((string) $request->input('access_code')).'|'.Str::lower((string) $request->input('username')).'|'.$request->ip());
         });
+
+        RateLimiter::for('super-admin-sensitive', function (Request $request): Limit {
+            return Limit::perMinute(5)->by((string) ($request->user()?->id ?? $request->ip()));
+        });
+
+        RateLimiter::for('health', function (Request $request): Limit {
+            return Limit::perMinute(config('cbt.health_rate_limit'))->by($request->ip());
+        });
     }
 }

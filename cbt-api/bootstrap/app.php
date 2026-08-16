@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddApiSecurityHeaders;
 use App\Http\Middleware\EnsureExamStudent;
 use App\Http\Middleware\EnsureUserRole;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->api(prepend: [AddApiSecurityHeaders::class]);
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'exam.student' => EnsureExamStudent::class,

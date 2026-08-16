@@ -8,14 +8,24 @@ use App\Models\User;
 
 class SchoolPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->role === UserRole::SuperAdmin && $user->school_id === null;
+    }
+
     public function view(User $user, School $school): bool
     {
-        return $this->belongsToCurriculumUser($user, $school);
+        return $this->viewAny($user) || $this->belongsToCurriculumUser($user, $school);
     }
 
     public function update(User $user, School $school): bool
     {
         return $this->belongsToCurriculumUser($user, $school);
+    }
+
+    public function resetCurriculumPassword(User $user, School $school): bool
+    {
+        return $this->viewAny($user);
     }
 
     private function belongsToCurriculumUser(User $user, School $school): bool

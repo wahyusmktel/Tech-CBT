@@ -12,6 +12,8 @@ import QuestionBanksPage from './pages/QuestionBanksPage'
 import StudentLoginPage from './pages/StudentLoginPage'
 import StudentExamPage from './pages/StudentExamPage'
 import ObserverMonitoringPage from './pages/ObserverMonitoringPage'
+import ReportsPage from './pages/ReportsPage'
+import SuperAdminPage from './pages/SuperAdminPage'
 import { FullPageSkeleton } from './components/Skeleton'
 
 function ProtectedRoute({ children, roles }) {
@@ -41,6 +43,8 @@ export default function App() {
       <Route path="/rooms" element={<ProtectedRoute roles={['kurikulum']}><RoomsPage /></ProtectedRoute>} />
       <Route path="/exams" element={<ProtectedRoute roles={['kurikulum']}><ExamsPage /></ProtectedRoute>} />
       <Route path="/question-banks" element={<ProtectedRoute roles={['kurikulum']}><QuestionBanksPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['kurikulum']}><ReportsPage /></ProtectedRoute>} />
+      <Route path="/super-admin" element={<ProtectedRoute roles={['super_admin']}><SuperAdminPage /></ProtectedRoute>} />
       <Route path="/student/exam" element={<ProtectedRoute roles={['siswa']}><StudentExamPage /></ProtectedRoute>} />
       <Route path="/observer/monitoring" element={<ProtectedRoute roles={['pengawas']}><ObserverMonitoringPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

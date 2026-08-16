@@ -11,6 +11,7 @@ use App\Models\School;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +44,11 @@ class AuthController extends Controller
 
             $token = $user->createToken('web-client')->plainTextToken;
             DB::commit();
+            try {
+                Cache::forget('super-admin:dashboard-summary');
+            } catch (Throwable $cacheException) {
+                Log::warning('Super admin summary cache invalidation failed.', ['exception' => $cacheException]);
+            }
 
             return response()->json([
                 'message' => 'Sekolah berhasil didaftarkan.',

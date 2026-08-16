@@ -54,6 +54,21 @@ class ExamExecutionTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/exams')->assertForbidden();
     }
 
+    public function test_answer_cannot_be_changed_after_attempt_is_finished(): void
+    {
+        $setup = $this->setupExam();
+        $login = $this->postJson('/api/v1/student/login', ['access_code' => $setup['exam']->access_code, 'username' => 'student001', 'password' => 'Secret123']);
+        $token = $login->json('data.token');
+        $this->withToken($token)->postJson('/api/v1/student/exam/start')->assertOk();
+        $this->withToken($token)->postJson('/api/v1/student/exam/submit')->assertOk();
+
+        Sanctum::actingAs($setup['credential']);
+        $this->putJson('/api/v1/student/exam/answers/'.$setup['question']->id, ['question_choice_id' => $setup['correct']->id])
+            ->assertConflict()
+            ->assertJsonPath('message', 'Ujian sudah diselesaikan.');
+        $this->assertDatabaseCount('exam_answers', 0);
+    }
+
     public function test_observer_only_sees_participants_in_assigned_room(): void
     {
         $setup = $this->setupExam();

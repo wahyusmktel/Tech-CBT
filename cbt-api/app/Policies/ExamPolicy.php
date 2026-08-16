@@ -18,9 +18,14 @@ class ExamPolicy
         return $this->viewAny($user);
     }
 
-    public function update(User $user, Exam $exam): bool
+    public function view(User $user, Exam $exam): bool
     {
         return $this->viewAny($user) && hash_equals($user->school_id, $exam->school_id);
+    }
+
+    public function update(User $user, Exam $exam): bool
+    {
+        return $this->view($user, $exam);
     }
 
     public function delete(User $user, Exam $exam): bool

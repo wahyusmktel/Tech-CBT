@@ -13,6 +13,7 @@ use App\Models\QuestionChoice;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -74,7 +75,10 @@ class StudentExamController extends Controller
 
                 return response()->json(['message' => 'Waktu ujian telah berakhir.'], 422);
             }
-            $attempt = ExamAttempt::query()->firstOrCreate(['exam_id' => $exam->id, 'student_id' => $credential->student_id], ['school_id' => $exam->school_id, 'credential_id' => $credential->id, 'status' => 'in_progress', 'started_at' => now(), 'last_activity_at' => now()]);
+            $attempt = Cache::lock("exam-attempt:{$exam->id}:{$credential->student_id}", 10)->block(5, fn () => ExamAttempt::query()->firstOrCreate(
+                ['exam_id' => $exam->id, 'student_id' => $credential->student_id],
+                ['school_id' => $exam->school_id, 'credential_id' => $credential->id, 'status' => 'in_progress', 'started_at' => now(), 'last_activity_at' => now()],
+            ));
             $attempt->load('answers');
             DB::commit();
 
@@ -91,19 +95,33 @@ class StudentExamController extends Controller
 
     public function saveAnswer(SaveExamAnswerRequest $request, string $question): JsonResponse
     {
+        DB::beginTransaction();
+
         try {
             $credential = $request->user()->load('exam');
-            $attempt = ExamAttempt::query()->where('credential_id', $credential->id)->where('status', 'in_progress')->firstOrFail();
+            $attempt = ExamAttempt::query()->where('credential_id', $credential->id)->lockForUpdate()->firstOrFail();
+            if ($attempt->status !== 'in_progress') {
+                DB::rollBack();
+
+                return response()->json(['message' => 'Ujian sudah diselesaikan.'], 409);
+            }
             if (now()->greaterThanOrEqualTo($credential->exam->start_at->copy()->addMinutes($credential->exam->duration_minutes))) {
+                DB::rollBack();
+
                 return response()->json(['message' => 'Waktu ujian telah berakhir.'], 422);
             }
             $item = Question::query()->where('question_bank_id', $credential->exam->question_bank_id)->findOrFail($question);
             $choice = QuestionChoice::query()->where('question_id', $item->id)->findOrFail($request->validated('question_choice_id'));
             ExamAnswer::query()->updateOrCreate(['attempt_id' => $attempt->id, 'question_id' => $item->id], ['school_id' => $attempt->school_id, 'question_choice_id' => $choice->id, 'answered_at' => now()]);
             $attempt->update(['last_activity_at' => now()]);
+            $savedAt = now();
+            DB::commit();
 
-            return response()->json(['message' => 'Jawaban tersimpan.', 'data' => ['saved_at' => now()->toISOString()]]);
+            return response()->json(['message' => 'Jawaban tersimpan.', 'data' => ['saved_at' => $savedAt->toISOString()]]);
         } catch (Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             if ($e instanceof ModelNotFoundException) {
                 throw $e;
             }
@@ -118,7 +136,7 @@ class StudentExamController extends Controller
         DB::beginTransaction();
         try {
             $credential = $request->user()->load('exam');
-            $attempt = ExamAttempt::query()->where('credential_id', $credential->id)->firstOrFail();
+            $attempt = ExamAttempt::query()->where('credential_id', $credential->id)->lockForUpdate()->firstOrFail();
             if ($attempt->status === 'finished') {
                 DB::rollBack();
 

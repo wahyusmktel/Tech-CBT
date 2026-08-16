@@ -18,6 +18,7 @@ export default function ExamsPage() {
   const [subjectForm, setSubjectForm] = useState(null)
   const [credentialForm, setCredentialForm] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [downloading, setDownloading] = useState('')
 
   async function refresh() {
     try {
@@ -76,11 +77,44 @@ export default function ExamsPage() {
     setExamForm({ id: exam.id, name: exam.name, subject_id: exam.subject.id, question_bank_id: exam.question_bank?.id ?? '', start_at: toLocalInput(exam.start_at), duration_minutes: exam.duration_minutes, status: exam.status, room_ids: exam.rooms.map((room) => room.id) })
   }
 
+  async function downloadDocument(exam, type, label) {
+    if (type === 'cards' && !exam.credentials_generated_at) {
+      toast.error('Generate kredensial peserta terlebih dahulu sebelum mencetak kartu ujian.')
+      return
+    }
+
+    const confirmation = await Swal.fire({ title: `Unduh ${label}?`, text: `Dokumen ${exam.name} akan dibuat menggunakan data terbaru.`, icon: 'question', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Ya, unduh', cancelButtonText: 'Batal' })
+    if (!confirmation.isConfirmed) return
+
+    const downloadKey = `${exam.id}-${type}`
+    setDownloading(downloadKey)
+    try {
+      const response = await api.get(`/exams/${exam.id}/documents/${type}.pdf`, { responseType: 'blob', timeout: 60000 })
+      const disposition = response.headers['content-disposition'] ?? ''
+      const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+      const regularName = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+      const filename = encodedName ? decodeURIComponent(encodedName) : regularName ?? `${label}.pdf`
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast.success(`${label} berhasil diunduh.`)
+    } catch (error) {
+      toast.error(getErrorMessage(error, `${label} gagal diunduh.`))
+    } finally {
+      setDownloading('')
+    }
+  }
+
   return (
     <AppShell>
       <section className="mx-auto max-w-7xl px-6 py-10">
         <div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-600">Administrasi ujian</p><h1 className="mt-2 text-3xl font-bold text-slate-950">Manajemen Ujian</h1><p className="mt-2 text-slate-500">Atur mata pelajaran, jadwal, ruang, durasi, dan kredensial peserta.</p></div><div className="flex gap-3"><button onClick={() => setSubjectForm({ name: '', code: '', manager: true })} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">Mata pelajaran</button><button onClick={() => setExamForm({ ...emptyExam })} className="primary-button">Tambah ujian</button></div></div>
-        {isLoading ? <div className="mt-8 space-y-4">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-40" />)}</div> : exams.length === 0 ? <div className="mt-8 rounded-2xl border bg-white p-16 text-center text-slate-500">Belum ada jadwal ujian.</div> : <div className="mt-8 space-y-4">{exams.map((exam) => <article key={exam.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-5"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-red-50 px-3 py-1 text-xs font-bold text-brand-700">{exam.subject.code}</span><span className="rounded-lg bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{statusLabels[exam.status]}</span><span className="rounded-lg bg-slate-900 px-3 py-1 font-mono text-xs font-bold text-white">Kode: {exam.access_code}</span></div><h2 className="mt-3 text-xl font-bold text-slate-950">{exam.name}</h2><p className="mt-2 text-sm text-slate-500">{new Date(exam.start_at).toLocaleString('id-ID')} · {exam.duration_minutes} menit</p><p className="mt-2 text-sm text-slate-500">Ruang: {exam.rooms.map((room) => room.name).join(', ')}</p><p className="mt-1 text-sm text-slate-500">Paket: {exam.question_bank?.title ?? 'Belum dipilih'}</p></div><div className="text-right"><p className="text-2xl font-bold text-slate-900">{exam.credentials_count}</p><p className="text-xs text-slate-500">kredensial peserta</p></div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => setCredentialForm({ exam, username_strategy: 'nisn', password_type: 'mixed', password_length: 8 })} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">{exam.credentials_generated_at ? 'Generate ulang' : 'Generate kredensial'}</button><button onClick={() => editExam(exam)} className="rounded-xl border px-4 py-2.5 text-sm font-bold text-slate-700">Edit</button><button onClick={() => deleteExam(exam)} className="rounded-xl border border-red-100 px-4 py-2.5 text-sm font-bold text-brand-600">Hapus</button></div></article>)}</div>}
+        {isLoading ? <div className="mt-8 space-y-4">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-48" />)}</div> : exams.length === 0 ? <div className="mt-8 rounded-2xl border bg-white p-16 text-center text-slate-500">Belum ada jadwal ujian.</div> : <div className="mt-8 space-y-4">{exams.map((exam) => <article key={exam.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-5"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-red-50 px-3 py-1 text-xs font-bold text-brand-700">{exam.subject.code}</span><span className="rounded-lg bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{statusLabels[exam.status]}</span><span className="rounded-lg bg-slate-900 px-3 py-1 font-mono text-xs font-bold text-white">Kode: {exam.access_code}</span></div><h2 className="mt-3 text-xl font-bold text-slate-950">{exam.name}</h2><p className="mt-2 text-sm text-slate-500">{new Date(exam.start_at).toLocaleString('id-ID')} · {exam.duration_minutes} menit</p><p className="mt-2 text-sm text-slate-500">Ruang: {exam.rooms.map((room) => room.name).join(', ')}</p><p className="mt-1 text-sm text-slate-500">Paket: {exam.question_bank?.title ?? 'Belum dipilih'}</p></div><div className="text-right"><p className="text-2xl font-bold text-slate-900">{exam.credentials_count}</p><p className="text-xs text-slate-500">kredensial peserta</p></div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => setCredentialForm({ exam, username_strategy: 'nisn', password_type: 'mixed', password_length: 8 })} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">{exam.credentials_generated_at ? 'Generate ulang' : 'Generate kredensial'}</button><button onClick={() => editExam(exam)} className="rounded-xl border px-4 py-2.5 text-sm font-bold text-slate-700">Edit</button><button onClick={() => deleteExam(exam)} className="rounded-xl border border-red-100 px-4 py-2.5 text-sm font-bold text-brand-600">Hapus</button></div><div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4"><button disabled={Boolean(downloading)} onClick={() => downloadDocument(exam, 'attendance', 'Daftar Hadir')} className="rounded-xl bg-red-50 px-4 py-2.5 text-sm font-bold text-brand-700 disabled:opacity-50">{downloading === `${exam.id}-attendance` ? 'Membuat...' : 'Daftar Hadir'}</button><button disabled={Boolean(downloading)} onClick={() => downloadDocument(exam, 'minutes', 'Berita Acara')} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50">{downloading === `${exam.id}-minutes` ? 'Membuat...' : 'Berita Acara'}</button><button disabled={Boolean(downloading)} onClick={() => downloadDocument(exam, 'cards', 'Kartu Ujian')} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50">{downloading === `${exam.id}-cards` ? 'Membuat...' : 'Kartu Ujian'}</button></div></article>)}</div>}
       </section>
 
       {examForm && <Modal title={examForm.id ? 'Edit ujian' : 'Tambah ujian'} onClose={() => setExamForm(null)}><form onSubmit={saveExam} className="grid gap-4 sm:grid-cols-2"><label className="sm:col-span-2"><span className="label">Nama ujian</span><input className="field" required value={examForm.name} onChange={(e) => setExamForm({ ...examForm, name: e.target.value })} /></label><label><span className="label">Mata pelajaran</span><select className="field" required value={examForm.subject_id} onChange={(e) => setExamForm({ ...examForm, subject_id: e.target.value })}><option value="">Pilih</option>{subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span className="label">Paket soal</span><select className="field" value={examForm.question_bank_id} onChange={(e) => setExamForm({ ...examForm, question_bank_id: e.target.value || null })}><option value="">Belum dipilih</option>{questionBanks.filter((item) => item.subject.id === examForm.subject_id).map((item) => <option key={item.id} value={item.id}>{item.title}{item.validated_at ? '' : ' (belum valid)'}</option>)}</select></label><label><span className="label">Status</span><select className="field" value={examForm.status} onChange={(e) => setExamForm({ ...examForm, status: e.target.value })}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span className="label">Mulai</span><input className="field" type="datetime-local" required value={examForm.start_at} onChange={(e) => setExamForm({ ...examForm, start_at: e.target.value })} /></label><label><span className="label">Durasi (menit)</span><input className="field" type="number" min="1" max="600" required value={examForm.duration_minutes} onChange={(e) => setExamForm({ ...examForm, duration_minutes: Number(e.target.value) })} /></label><fieldset className="sm:col-span-2"><legend className="label">Ruang ujian</legend><div className="grid gap-2 sm:grid-cols-2">{rooms.map((room) => <label key={room.id} className="flex items-center gap-3 rounded-xl border p-3"><input type="checkbox" checked={examForm.room_ids.includes(room.id)} onChange={() => setExamForm({ ...examForm, room_ids: examForm.room_ids.includes(room.id) ? examForm.room_ids.filter((id) => id !== room.id) : [...examForm.room_ids, room.id] })} />{room.name}</label>)}</div></fieldset><button className="primary-button sm:col-span-2" disabled={isSubmitting}>Simpan ujian</button></form></Modal>}

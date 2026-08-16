@@ -18,7 +18,8 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', form)
       saveSession(response.data.data)
       toast.success(response.data.message)
-      navigate(response.data.data.user.role === 'pengawas' ? '/observer/monitoring' : '/dashboard', { replace: true })
+      const destinations = { pengawas: '/observer/monitoring', super_admin: '/super-admin' }
+      navigate(destinations[response.data.data.user.role] ?? '/dashboard', { replace: true })
     } catch (error) {
       toast.error(getErrorMessage(error, 'Login gagal.'))
     } finally {
