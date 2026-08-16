@@ -18,17 +18,20 @@ class User extends Authenticatable
 
     protected $fillable = [
         'school_id',
+        'room_id',
         'name',
         'email',
         'username',
         'role',
         'password',
+        'generated_password',
         'is_active',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'generated_password',
     ];
 
     public function school(): BelongsTo
@@ -46,8 +49,14 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'generated_password' => 'encrypted',
             'role' => UserRole::class,
             'is_active' => 'boolean',
         ];
+    }
+
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(Room::class);
     }
 }

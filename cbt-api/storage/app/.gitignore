@@ -1,4 +1,9 @@
 *
 !private/
 !public/
+!outputs/
+outputs/*
+!outputs/student-import-template/
+outputs/student-import-template/*
+!outputs/student-import-template/template-import-siswa.xlsx
 !.gitignore

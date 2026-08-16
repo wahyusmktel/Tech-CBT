@@ -32,5 +32,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('answer-sync', function (Request $request): Limit {
             return Limit::perMinute(60)->by((string) ($request->user()?->id ?? $request->ip()));
         });
+
+        RateLimiter::for('student-login', function (Request $request): Limit {
+            return Limit::perMinute(5)->by(Str::lower((string) $request->input('access_code')).'|'.Str::lower((string) $request->input('username')).'|'.$request->ip());
+        });
     }
 }

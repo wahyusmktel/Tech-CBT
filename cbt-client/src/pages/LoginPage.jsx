@@ -18,7 +18,7 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', form)
       saveSession(response.data.data)
       toast.success(response.data.message)
-      navigate('/dashboard', { replace: true })
+      navigate(response.data.data.user.role === 'pengawas' ? '/observer/monitoring' : '/dashboard', { replace: true })
     } catch (error) {
       toast.error(getErrorMessage(error, 'Login gagal.'))
     } finally {
@@ -27,7 +27,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout eyebrow="Selamat datang" title="Masuk ke akun Anda" description="Gunakan kredensial sesuai peran yang telah diberikan." footer={<>Belum terdaftar? <Link className="font-bold text-brand-600" to="/register">Daftarkan sekolah</Link></>}>
+    <AuthLayout eyebrow="Selamat datang" title="Masuk ke akun Anda" description="Gunakan kredensial sesuai peran yang telah diberikan." footer={<><Link className="font-bold text-brand-600" to="/student-login">Masuk sebagai siswa</Link><span className="mx-2">·</span>Belum terdaftar? <Link className="font-bold text-brand-600" to="/register">Daftarkan sekolah</Link></>}>
       <form className="space-y-5" onSubmit={handleSubmit}>
         <label className="block"><span className="label">Username</span><input className="field" autoComplete="username" required value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} /></label>
         <label className="block"><span className="label">Password</span><input className="field" type="password" autoComplete="current-password" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
